@@ -13,12 +13,9 @@
 
 ## Overview
 
-This Action adds more awareness, and optionally fails a pull request status check, when a secret scanning alert is introduced as part of a pull request. This makes it harder for peer reviewers to miss the alert and makes it easier to enforce that the alert is resolved before the pull request is merged (when combined with [repository rulesets](https://docs.github.com/en/enterprise-cloud@latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)).
+This Action adds more awareness, and optionally fails a pull request status check, when a secret scanning alert is introduced in commits, pull request title, description, comments, reviews, or review comments as part of a pull request. This makes it harder for peer reviewers to miss the alert and makes it easier to enforce that the alert is resolved before the pull request is merged (when combined with [repository rulesets](https://docs.github.com/en/enterprise-cloud@latest/repositories/configuring-branches-and-merges-in-your-repository/managing-rulesets/about-rulesets)).
 
 This Action is also helpful in increasing visibility for secrets that are detected with secret scanning, but are not yet [supported with push protection](https://docs.github.com/en/enterprise-cloud@latest/code-security/secret-scanning/secret-scanning-patterns#supported-secrets-for-push-protection), or where push protection has been bypassed.
-
-> [!NOTE]
-> When running the Action with the `python` runtime, the Action will also provide a summary of the secrets introduced in the pull request title, description, comments, review, and review comments.
 
 ## Prerequisites
 
@@ -49,9 +46,9 @@ The Action summarizes all secrets introduced in the pull request in the workflow
 By default, when any secrets are found the Action will also add a comment to the pull request with a summary of the secrets introduced in the pull request:
 <img width="854" alt="Secret Scanning Review Workflow Checks" src="https://github.com/advanced-security/secret-scanning-review-action/assets/1760475/5b743082-33d2-45d1-bef2-c0bb5d796932">
 
-### Step Output of Alert Metadata (python runtime only)
+### Step Output of Alert Metadata
 
-When running the Action with the `python` runtime option, the Action will also provide a summary of the secrets introduced in the pull request as a step output variable, `alerts`. You can access this step output in subsequent steps in your workflow for any further processing that you would like to perform.
+The Action provides a summary of the secrets introduced in the pull request as a step output variable, `alerts`. You can access this step output in subsequent steps in your workflow for any further processing that you would like to perform.
 
 > [!NOTE]
 > The `alerts` step output does NOT include secret values.
@@ -135,47 +132,47 @@ An example of the `alerts` step output variable is shown below, where two differ
 
 ## Configuration Options
 
-### `token`
-**REQUIRED** A GitHub Access Token
-   * Classic Tokens
-      * `repo` scope. For public repositories, you may instead use the `public_repo` + `security_events` scopes.
-   * Fine-grained personal access token permissions
-      * Read-Only - [Secret Scanning Alerts](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens?apiVersion=2022-11-28#repository-permissions-for-secret-scanning-alerts)
-      * Write - [Pull requests](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens?apiVersion=2022-11-28#repository-permissions-for-pull-requests).
-        * (`disable-pr-comment: true`) Read-Only - [Pull requests](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens?apiVersion=2022-11-28#repository-permissions-for-pull-requests). Not required for public repositories.
+### Inputs
 
-NOTE:
-   * Unfortunately we cannot currently utilize the built in Actions [GITHUB_TOKEN](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token) due to ommitted permissions on the `secret-scanning` API.  Therefore you must generate a token (PAT or GitHub App) with these permissions, add the token as a secret in your repository, and assign the secret to the workflow parameter. See Also: [Granting additional permissions](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#granting-additional-permissions)
-   * It is worth noting this token will have `sensitive` data access to return a list of plain text secrets that have been detected in your organization/repository.  At this point, a detected secret also implies anyone with read repository access would provide the same level of access to the leaked secret and therefore should be considered compromised.
+| Input | Required | Description | Default |
+|-------|----------|-------------|---------|
+| `token` | **Yes** | GitHub Access Token with required permissions. See [token requirements](#token-requirements) below. | - |
+| `fail-on-alert` | No | Fail the action workflow via non-zero exit code if a matching secret scanning alert is found. | `false` |
+| `fail-on-alert-exclude-closed` | No | Handle failure exit code / annotations as warnings if the alert is found and marked as closed (state: 'resolved'). | `false` |
+| `disable-pr-comment` | No | Disable the PR comment feature. | `false` |
+| `runtime` | No | Runtime to use for the action. Options: `powershell` or `python`. | `powershell` |
+| `skip-closed-alerts` | No | Only process open alerts. | `false` |
+| `disable-workflow-summary` | No | Disable the workflow summary markdown table output. | `false` |
+| `python-http-proxy-url` | No | HTTP proxy URL for the python runtime. Example: `http://proxy.example.com:1234` | `""` |
+| `python-https-proxy-url` | No | HTTPS proxy URL for the python runtime. Example: `http://proxy.example.com:5678` | `""` |
+| `python-verify-ssl` | No | Enable/disable SSL verification for the python runtime. ⚠️ Disabling is NOT recommended for production. | `true` |
+| `python-skip-closed-alerts` | No | **DEPRECATED** - Use `skip-closed-alerts` instead. | `false` |
+| `python-disable-workflow-summary` | No | **DEPRECATED** - Use `disable-workflow-summary` instead. | `false` |
 
-### `fail-on-alert`
-**OPTIONAL** If provided, will fail the action workflow via non-zero exit code if a matching secret scanning alert is found. Default `'false'`.
+### Outputs
 
-### `fail-on-alert-exclude-closed`
-**OPTIONAL** If provided, will handle failure exit code / annotations as warnings if the alert is found and the alert is marked as closed (state: 'resolved'). Default `'false'`.
+| Output | Description |
+|--------|-------------|
+| `alerts` | JSON array containing details about the alerts detected in the PR. See [Step Output of Alert Metadata](#step-output-of-alert-metadata) for the JSON schema and example usage. |
 
-### `disable-pr-comment`
-**OPTIONAL** If provided, will not put a comment on the Pull Request with a summary of detected secrets. Default `'false'`.
+### Token Requirements
 
-### `runtime`
-**OPTIONAL** If provided, will desingate the runtime that's used to run the action. Options are `'powershell'` or `'python'`. Default `'powershell'`.
+The `token` input requires a GitHub Access Token with the following permissions:
 
-### `python-http-proxy-url`
-**OPTIONAL** If provided, will set the http proxy for the python runtime. Default `""`. Example: `"http://proxy.example.com:1234"`
+**Classic Tokens:**
+- `repo` scope
+- For public repositories: `public_repo` + `security_events` scopes
 
-### `python-https-proxy-url`
-**OPTIONAL** If provided, will set the https proxy for the python runtime. Default `""`. Example: `"http://proxy.example.com:5678"`
+**Fine-grained Personal Access Tokens:**
+- **Read-Only**: [Secret Scanning Alerts](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens?apiVersion=2022-11-28#repository-permissions-for-secret-scanning-alerts)
+- **Write**: [Pull requests](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens?apiVersion=2022-11-28#repository-permissions-for-pull-requests)
+  - If `disable-pr-comment: true`, only **Read-Only** [Pull requests](https://docs.github.com/en/rest/authentication/permissions-required-for-fine-grained-personal-access-tokens?apiVersion=2022-11-28#repository-permissions-for-pull-requests) is required (not required for public repositories)
 
-### `python-verify-ssl`
-**OPTIONAL** If provided, will set the ssl verification option for the python runtime. Default `'true'`.
+> [!NOTE]
+> The built-in Actions [GITHUB_TOKEN](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#permissions-for-the-github_token) cannot be used due to missing permissions on the `secret-scanning` API. You must generate a token (PAT or GitHub App) with the required permissions, add it as a secret in your repository, and assign the secret to the workflow parameter. See: [Granting additional permissions](https://docs.github.com/en/actions/security-guides/automatic-token-authentication#granting-additional-permissions)
+
 > [!WARNING]
-> Disabling SSL verification is NOT recommended for production environments. This option is provided for testing purposes only.
-
-### `python-skip-closed-alerts`
-**OPTIONAL** If provided, will only process open alerts. Default `'false'`.
-
-### `python-disable-workflow-summary`
-**OPTIONAL** If provided, will not put a summary of detected secrets in the workflow run summary. Default `'false'`.
+> This token will have `sensitive` data access to return a list of plain text secrets detected in your organization/repository. A detected secret implies anyone with read repository access would have the same level of access to the leaked secret, which should be considered compromised.
 
 ## Example usage
 
@@ -283,4 +280,6 @@ sequenceDiagram
 ### Why are there two runtime options and what's the difference?
 The primary difference is the underlying language and the dependencies that are required to be installed on the runner.  The `powershell` runtime is the default and is the most tested.  The `python` runtime is a newer addition for those who may not have powershell installed on their self-hosted runners.
 
-The `python` runtime also includes some additional configuration options that are not available in the `powershell` runtime, and looks beyond just the pull request commits for secrets that were introduced in the pull request title, description, comments, review, and review comments.
+The `python` runtime includes some additional configuration options for enterprise environments:
+- **Proxy support**: Configure HTTP/HTTPS proxy settings for on-premises or corporate network environments (`python-http-proxy-url` and `python-https-proxy-url`)
+- **SSL verification control**: Disable SSL verification for testing environments (`python-verify-ssl`)

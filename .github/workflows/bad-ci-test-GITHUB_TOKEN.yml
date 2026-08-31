@@ -39,6 +39,9 @@ on:
     types: [opened, synchronize, reopened]
   workflow_dispatch:  # Allow manual trigger for testing
 
+permissions:
+  contents: read
+
 jobs:
   ###############################################################################################
   # THIS JOB WILL FAIL - GITHUB_TOKEN CANNOT ACCESS SECRET SCANNING API
@@ -57,7 +60,7 @@ jobs:
 
     steps:
       - name: '📥 Checkout repository'
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: '⚠️ WARNING - This is a bad test'
         run: |
